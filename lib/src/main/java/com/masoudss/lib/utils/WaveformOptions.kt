@@ -21,9 +21,7 @@ internal object WaveformOptions {
         amplitudaOutput: AmplitudaProcessingOutput<*>,
         onSuccess: (IntArray) -> Unit
     ) {
-        val result = amplitudaOutput.get { exception: AmplitudaException ->
-            exception.printStackTrace()
-        }
+        val result = amplitudaOutput.get(AmplitudaException::printStackTrace)
         onSuccess(result.amplitudesAsList().toTypedArray().toIntArray())
     }
 
