@@ -26,3 +26,5 @@ dependencies {
     implementation "androidx.appcompat:appcompat:$appcompat_version"
     compileOnly 'com.github.lincollincol:amplituda:2.1.5'
 }
+
+afterEvaluate { rootProject.onAfterEvaluate(project, tasks) }
