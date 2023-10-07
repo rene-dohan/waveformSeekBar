@@ -119,7 +119,7 @@ open class WaveformSeekBar @JvmOverloads constructor(
             ta.getFloat(R.styleable.WaveformSeekBar_wave_visible_progress, visibleProgress)
         val gravity = ta.getString(R.styleable.WaveformSeekBar_wave_gravity)?.toInt()
             ?: WaveGravity.CENTER.ordinal
-        waveGravity = WaveGravity.values()[gravity]
+        waveGravity = WaveGravity.entries[gravity]
         ta.recycle()
     }
 
