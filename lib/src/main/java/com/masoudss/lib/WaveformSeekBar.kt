@@ -1,11 +1,19 @@
 package com.masoudss.lib
 
 import android.content.Context
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Shader
+import android.net.Uri
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import androidx.annotation.RawRes
 import com.masoudss.lib.utils.ThreadBlocking
 import com.masoudss.lib.utils.Utils
 import com.masoudss.lib.utils.WaveGravity
@@ -16,13 +24,15 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 
 open class WaveformSeekBar @JvmOverloads constructor(
-    context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
+    context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0,
 ) : View(context, attrs, defStyleAttr) {
 
     private var mCanvasWidth = 0
     private var mCanvasHeight = 0
     private val mWavePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val mWaveRect = RectF()
+    private val mMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val mMarkerRect = RectF()
     private val mProgressCanvas = Canvas()
     private var mMaxValue = Utils.dp(context, 2).toInt()
     private var mTouchDownX = 0F
@@ -72,6 +82,30 @@ open class WaveformSeekBar @JvmOverloads constructor(
             invalidate()
         }
 
+    var wavePaddingTop: Int = 0
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var wavePaddingBottom: Int = 0
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var wavePaddingLeft: Int = 0
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var wavePaddingRight: Int = 0
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     var waveWidth: Float = Utils.dp(context, 5)
         set(value) {
             field = value
@@ -96,6 +130,42 @@ open class WaveformSeekBar @JvmOverloads constructor(
             invalidate()
         }
 
+    var marker: HashMap<Float, String>? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var markerWidth: Float = Utils.dp(context, 1)
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var markerColor: Int = Color.GREEN
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var markerTextColor: Int = Color.RED
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var markerTextSize: Float = Utils.dp(context, 12)
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var markerTextPadding: Float = Utils.dp(context, 2)
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     var visibleProgress: Float = 0F
         set(value) {
             field = value
@@ -106,6 +176,12 @@ open class WaveformSeekBar @JvmOverloads constructor(
         val ta = context.obtainStyledAttributes(attrs, R.styleable.WaveformSeekBar)
         waveWidth = ta.getDimension(R.styleable.WaveformSeekBar_wave_width, waveWidth)
         waveGap = ta.getDimension(R.styleable.WaveformSeekBar_wave_gap, waveGap)
+        wavePaddingTop = ta.getDimension(R.styleable.WaveformSeekBar_wave_padding_top, 0F).toInt()
+        wavePaddingBottom =
+            ta.getDimension(R.styleable.WaveformSeekBar_wave_padding_Bottom, 0F).toInt()
+        wavePaddingLeft = ta.getDimension(R.styleable.WaveformSeekBar_wave_padding_left, 0F).toInt()
+        wavePaddingRight =
+            ta.getDimension(R.styleable.WaveformSeekBar_wave_padding_right, 0F).toInt()
         waveCornerRadius =
             ta.getDimension(R.styleable.WaveformSeekBar_wave_corner_radius, waveCornerRadius)
         waveMinHeight = ta.getDimension(R.styleable.WaveformSeekBar_wave_min_height, waveMinHeight)
@@ -119,7 +195,15 @@ open class WaveformSeekBar @JvmOverloads constructor(
             ta.getFloat(R.styleable.WaveformSeekBar_wave_visible_progress, visibleProgress)
         val gravity = ta.getString(R.styleable.WaveformSeekBar_wave_gravity)?.toInt()
             ?: WaveGravity.CENTER.ordinal
-        waveGravity = WaveGravity.entries[gravity]
+        waveGravity = WaveGravity.values()[gravity]
+        markerWidth = ta.getDimension(R.styleable.WaveformSeekBar_marker_width, markerWidth)
+        markerColor = ta.getColor(R.styleable.WaveformSeekBar_marker_color, markerColor)
+        markerTextColor =
+            ta.getColor(R.styleable.WaveformSeekBar_marker_text_color, markerTextColor)
+        markerTextSize =
+            ta.getDimension(R.styleable.WaveformSeekBar_marker_text_size, markerTextSize)
+        markerTextPadding =
+            ta.getDimension(R.styleable.WaveformSeekBar_marker_text_padding, markerTextPadding)
         ta.recycle()
     }
 
@@ -145,7 +229,14 @@ open class WaveformSeekBar @JvmOverloads constructor(
     }
 
     @ThreadBlocking
-    fun setSampleFrom(audio: Int) {
+    fun setSampleFrom(@RawRes audio: Int) {
+        WaveformOptions.getSampleFrom(context, audio) {
+            sample = it
+        }
+    }
+
+    @ThreadBlocking
+    fun setSampleFrom(audio: Uri) {
         WaveformOptions.getSampleFrom(context, audio) {
             sample = it
         }
@@ -156,7 +247,7 @@ open class WaveformSeekBar @JvmOverloads constructor(
         mCanvasWidth = w
         mCanvasHeight = h
         progressBitmap =
-            Bitmap.createBitmap(getAvailableWidth(), mCanvasHeight, Bitmap.Config.ARGB_8888)
+            Bitmap.createBitmap(getAvailableWidth(), getAvailableHeight(), Bitmap.Config.ARGB_8888)
         progressShader = BitmapShader(progressBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
     }
 
@@ -166,19 +257,21 @@ open class WaveformSeekBar @JvmOverloads constructor(
             if (waveSample.isEmpty())
                 return
 
-            canvas.clipRect(paddingLeft,
+            canvas.clipRect(
+                paddingLeft,
                 paddingTop,
                 mCanvasWidth - paddingRight,
-                mCanvasHeight - paddingBottom)
+                mCanvasHeight - paddingBottom
+            )
             val totalWaveWidth = waveGap + waveWidth
             var step = waveSample.size / (getAvailableWidth() / totalWaveWidth)
 
-            var lastWaveRight = paddingLeft.toFloat()
+            var previousWaveRight = paddingLeft.toFloat() + wavePaddingLeft
             var sampleItemPosition: Int
 
             val barsToDraw = (getAvailableWidth() / totalWaveWidth).toInt()
             val start: Int
-            val progressView: Float
+            val progressXPosition: Float
             if (visibleProgress > 0) {
                 // If visibleProgress is > 0, the bars move instead of the blue colored part
                 step *= visibleProgress / maxProgress
@@ -186,58 +279,101 @@ open class WaveformSeekBar @JvmOverloads constructor(
                 // intFactor is required as depending on whether an equal number of bars must be drawn, the start will switch differently
                 val intFactor = (((barsForProgress + 1) % 2))
                 // Calculate fixed start change depending
-                lastWaveRight += (getAvailableWidth() * 0.5F) % totalWaveWidth
-                lastWaveRight += intFactor * 0.5F * totalWaveWidth - totalWaveWidth
+                previousWaveRight += (getAvailableWidth() * 0.5F) % totalWaveWidth
+                previousWaveRight += intFactor * 0.5F * totalWaveWidth - totalWaveWidth
                 // Calculate start change depending on progress, so that it moves smoothly
-                lastWaveRight -= ((progress + intFactor * visibleProgress / barsForProgress * 0.5f) % (visibleProgress / barsForProgress)) / (visibleProgress / barsForProgress) * totalWaveWidth
+                previousWaveRight -= ((progress + intFactor * visibleProgress / barsForProgress * 0.5f) % (visibleProgress / barsForProgress)) / (visibleProgress / barsForProgress) * totalWaveWidth
                 start =
                     (progress * barsForProgress / visibleProgress - (barsForProgress / 2F)).roundToInt() - 1
-                progressView = getAvailableWidth() * 0.5F
+                progressXPosition = getAvailableWidth() * 0.5F
             } else {
                 start = 0
-                progressView = getAvailableWidth() * progress / maxProgress
+                progressXPosition = getAvailableWidth() * progress / maxProgress
             }
+
+            // draw waves
             for (i in start until barsToDraw + start + 3) {
                 sampleItemPosition = floor(i * step).roundToInt()
                 var waveHeight =
-                    if (sampleItemPosition >= 0 && sampleItemPosition < waveSample.size)
-                        getAvailableHeight() * (waveSample[sampleItemPosition].toFloat() / mMaxValue)
+                    if (sampleItemPosition in waveSample.indices && mMaxValue != 0)
+                        (getAvailableHeight() - wavePaddingTop - wavePaddingBottom) * (waveSample[sampleItemPosition].toFloat() / mMaxValue)
                     else 0F
 
-                if (waveHeight < waveMinHeight)
-                    waveHeight = waveMinHeight
+                if (waveHeight < waveMinHeight) waveHeight = waveMinHeight
 
                 val top: Float = when (waveGravity) {
-                    WaveGravity.TOP -> paddingTop.toFloat()
-                    WaveGravity.CENTER -> paddingTop + getAvailableHeight() / 2F - waveHeight / 2F
-                    WaveGravity.BOTTOM -> mCanvasHeight - paddingBottom - waveHeight
+                    WaveGravity.TOP -> paddingTop.toFloat() + wavePaddingTop
+                    WaveGravity.CENTER -> (paddingTop + wavePaddingTop + getAvailableHeight()) / 2F - waveHeight / 2F
+                    WaveGravity.BOTTOM -> mCanvasHeight - paddingBottom - wavePaddingBottom - waveHeight
                 }
 
-                mWaveRect.set(lastWaveRight, top, lastWaveRight + waveWidth, top + waveHeight)
+                mWaveRect.set(
+                    previousWaveRight,
+                    top,
+                    previousWaveRight + waveWidth,
+                    top + waveHeight
+                )
                 when {
-                    mWaveRect.contains(progressView, mWaveRect.centerY()) -> {
+                    // if progress is currently in waveRect, color have to be split up
+                    mWaveRect.contains(progressXPosition, mWaveRect.centerY()) -> {
                         mProgressCanvas.setBitmap(progressBitmap)
                         mWavePaint.color = waveProgressColor
-                        mProgressCanvas.drawRect(0F, 0F, progressView, mWaveRect.bottom, mWavePaint)
+                        mProgressCanvas.drawRect(
+                            0F,
+                            0F,
+                            progressXPosition,
+                            mWaveRect.bottom,
+                            mWavePaint
+                        )
                         mWavePaint.color = waveBackgroundColor
-                        mProgressCanvas.drawRect(progressView,
+                        mProgressCanvas.drawRect(
+                            progressXPosition,
                             0F,
                             getAvailableWidth().toFloat(),
                             mWaveRect.bottom,
-                            mWavePaint)
+                            mWavePaint
+                        )
                         mWavePaint.shader = progressShader
                     }
-                    mWaveRect.right <= progressView -> {
+
+                    mWaveRect.right <= progressXPosition -> {
                         mWavePaint.color = waveProgressColor
                         mWavePaint.shader = null
                     }
+
                     else -> {
                         mWavePaint.color = waveBackgroundColor
                         mWavePaint.shader = null
                     }
                 }
                 canvas.drawRoundRect(mWaveRect, waveCornerRadius, waveCornerRadius, mWavePaint)
-                lastWaveRight = mWaveRect.right + waveGap
+                previousWaveRight = mWaveRect.right + waveGap
+            }
+
+            // TODO: implement for visibleProgress > 0
+            //draw markers
+            if (visibleProgress <= 0) marker?.forEach {
+                // out of progress range
+                if (it.key < 0 || it.key > maxProgress) return
+
+                val markerXPosition = getAvailableWidth() * (it.key / maxProgress)
+                mMarkerRect.set(
+                    markerXPosition - (markerWidth / 2),
+                    0f,
+                    markerXPosition + (markerWidth / 2),
+                    getAvailableHeight().toFloat()
+                )
+                mMarkerPaint.color = markerColor
+                canvas.drawRect(mMarkerRect, mMarkerPaint)
+
+                val markerTextDistance = markerTextPadding
+                val markerTextXPosition = -markerXPosition - (markerWidth / 2) - markerTextDistance
+
+                mMarkerPaint.textSize = markerTextSize
+                mMarkerPaint.color = markerTextColor
+                canvas.rotate(90f)
+                canvas.drawText(it.value, markerTextDistance, markerTextXPosition, mMarkerPaint)
+                canvas.rotate(-90f)
             }
         }
     }
@@ -306,13 +442,19 @@ open class WaveformSeekBar @JvmOverloads constructor(
     }
 
     private fun updateProgress(event: MotionEvent) {
-        if (visibleProgress > 0) {
-            progress = mProgress - visibleProgress * (event.x - mTouchDownX) / getAvailableWidth()
-            progress = (progress).coerceIn(0F, maxProgress)
-        } else {
-            progress = maxProgress * event.x / getAvailableWidth()
-        }
+        progress = getProgress(event);
         onProgressChanged?.onProgressChanged(this, progress, true)
+    }
+
+    private fun getProgress(event: MotionEvent): Float {
+        return if (visibleProgress > 0) {
+            (mProgress - visibleProgress * (event.x - mTouchDownX) / getAvailableWidth()).coerceIn(
+                0F,
+                maxProgress
+            )
+        } else {
+            maxProgress * event.x / getAvailableWidth()
+        }
     }
 
     override fun performClick(): Boolean {
@@ -320,9 +462,17 @@ open class WaveformSeekBar @JvmOverloads constructor(
         return true
     }
 
-    private fun getAvailableWidth() = mCanvasWidth - paddingLeft - paddingRight
+    private fun getAvailableWidth(): Int {
+        var width = mCanvasWidth - paddingLeft - paddingRight
+        if (width <= 0) width = 1
+        return width
+    }
 
-    private fun getAvailableHeight() = mCanvasHeight - paddingTop - paddingBottom
+    private fun getAvailableHeight(): Int {
+        var height = mCanvasHeight - paddingTop - paddingBottom
+        if (height <= 0) height = 1
+        return height
+    }
 
     var onDragStartListener: ((WaveformSeekBar) -> Unit)? = null
     var onDragStopListener: ((WaveformSeekBar) -> Unit)? = null
@@ -334,5 +484,4 @@ open class WaveformSeekBar @JvmOverloads constructor(
     fun onDragStop(function: (WaveformSeekBar) -> Unit) {
         onDragStopListener = function
     }
-
 }
